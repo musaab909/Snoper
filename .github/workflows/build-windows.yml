@@ -38,7 +38,10 @@ jobs:
       - name: Build installer (Snoper-Setup.exe)
         working-directory: build
         run: |
-          & "$Env:ProgramFiles(x86)\Inno Setup 6\ISCC.exe" installer.iss
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) { $iscc = "$env:ProgramFiles\Inno Setup 6\ISCC.exe" }
+          Write-Host "Using ISCC at: $iscc"
+          & $iscc installer.iss
 
       - name: Upload standalone exe
         uses: actions/upload-artifact@v4
