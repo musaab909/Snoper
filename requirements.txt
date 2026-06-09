@@ -1,0 +1,17 @@
+# Core
+numpy>=1.24
+
+# Audio capture (PortAudio bindings)
+sounddevice>=0.4.6
+soundfile>=0.12        # optional; stdlib `wave` fallback exists
+
+# Tray UI
+pystray>=0.19
+pillow>=10.0
+
+# Transcription (optional, heavy)
+faster-whisper>=1.0    # install only if you want speech-to-text
+
+# Dev / packaging
+pytest>=7.4
+pyinstaller>=6.0

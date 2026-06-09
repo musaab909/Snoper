@@ -1,0 +1,53 @@
+name: Build Windows Installer
+
+# Builds Snoper.exe and Snoper-Setup.exe on a Windows runner and uploads them
+# as downloadable artifacts. No local Windows machine required.
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:        # lets you trigger it manually from the Actions tab
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run tests
+        run: python -m pytest -q
+
+      - name: Build Snoper.exe (PyInstaller)
+        run: pyinstaller --noconfirm --clean build/snoper.spec
+
+      - name: Install Inno Setup
+        run: choco install innosetup --no-progress -y
+
+      - name: Build installer (Snoper-Setup.exe)
+        working-directory: build
+        run: |
+          & "$Env:ProgramFiles(x86)\Inno Setup 6\ISCC.exe" installer.iss
+
+      - name: Upload standalone exe
+        uses: actions/upload-artifact@v4
+        with:
+          name: Snoper-exe
+          path: dist/Snoper.exe
+
+      - name: Upload installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: Snoper-Setup
+          path: build/Output/Snoper-Setup.exe
