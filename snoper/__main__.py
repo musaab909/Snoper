@@ -22,21 +22,37 @@ from .recorder import Recorder, RecorderState
 
 
 def _maybe_auto_update(settings: Settings) -> None:
-    """Background update check at startup; applies silently if enabled.
+    """Silent auto-update: one check at startup, then periodic re-checks.
 
-    Runs on a daemon thread so it never blocks recording. If an update is
-    installed, the installer (silent) replaces the exe and relaunches Snoper.
+    Runs on a daemon thread so it never blocks recording. The first check fires
+    shortly after launch; if `update_check_interval_h > 0` it then re-checks on
+    that interval, so a long-running install updates without needing a restart.
+    If an update is found it installs silently and relaunches Snoper.
     """
-    if not (settings.auto_update and settings.update_check_on_start):
+    if not settings.auto_update:
         return
 
-    def worker():
+    interval_s = max(0.0, settings.update_check_interval_h) * 3600
+
+    def run_once():
         try:
             from .updater import check_and_update
 
-            check_and_update(settings, on_status=lambda m: print(f"[snoper:update] {m}"))
+            return check_and_update(settings, on_status=lambda m: print(f"[snoper:update] {m}"))
         except Exception as e:  # pragma: no cover - defensive
             print(f"[snoper] auto-update error: {e}")
+            return False
+
+    def worker():
+        if settings.update_check_on_start:
+            if run_once():
+                return  # updating/exiting; installer takes over
+        if interval_s <= 0:
+            return
+        while True:
+            time.sleep(interval_s)
+            if run_once():
+                return
 
     threading.Thread(target=worker, name="snoper-update", daemon=True).start()
 

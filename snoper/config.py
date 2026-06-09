@@ -72,6 +72,7 @@ class Settings:
     # --- Auto-update (checks GitHub Releases) ---
     auto_update: bool = True          # check + apply updates automatically at startup
     update_check_on_start: bool = True
+    update_check_interval_h: float = 6.0  # re-check every N hours while running (0 = only at start)
     update_token: Optional[str] = None  # only needed if the repo/releases are private
 
     # --- Scheduling: list of {start: "HH:MM", end: "HH:MM", days: [0..6]} ---
