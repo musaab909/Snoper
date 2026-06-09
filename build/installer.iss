@@ -33,8 +33,8 @@ ArchitecturesInstallIn64BitMode=x64compatible
 Name: "english"; MessagesFile: "compiler:Default.isl"
 
 [Tasks]
-Name: "desktopicon"; Description: "Create a desktop shortcut"; GroupFlags: unchecked
-Name: "startupicon"; Description: "Start Snoper automatically when Windows starts"; GroupFlags: unchecked
+Name: "desktopicon"; Description: "Create a desktop shortcut"; Flags: unchecked
+Name: "startupicon"; Description: "Start Snoper automatically when Windows starts"; Flags: unchecked
 
 [Files]
 ; The PyInstaller one-file exe produced in dist\
