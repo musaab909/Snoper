@@ -8,7 +8,9 @@
 ; ============================================================
 
 #define AppName "Snoper"
-#define AppVersion "1.0.0"
+#ifndef AppVersion
+  #define AppVersion "1.0.0"
+#endif
 #define AppPublisher "Snoper"
 #define AppExeName "Snoper.exe"
 
@@ -22,12 +24,16 @@ DefaultGroupName={#AppName}
 DisableProgramGroupPage=yes
 OutputDir=Output
 OutputBaseFilename=Snoper-Setup
+VersionInfoVersion={#AppVersion}
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
 ; Per-user install needs no admin; use lowest privileges:
 PrivilegesRequired=lowest
 ArchitecturesInstallIn64BitMode=x64compatible
+; Silent auto-updates: close the running app so its exe can be replaced.
+CloseApplications=yes
+RestartApplications=no
 
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"
@@ -52,5 +58,7 @@ Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; \
     Flags: uninsdeletevalue; Tasks: startupicon
 
 [Run]
+; Interactive install: offer to launch. Also relaunch after a silent auto-update.
 Filename: "{app}\{#AppExeName}"; Description: "Launch Snoper now"; \
     Flags: nowait postinstall skipifsilent
+Filename: "{app}\{#AppExeName}"; Flags: nowait runasoriginaluser; Check: WizardSilent

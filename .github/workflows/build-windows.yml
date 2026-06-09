@@ -1,12 +1,19 @@
 name: Build Windows Installer
 
-# Builds Snoper.exe and Snoper-Setup.exe on a Windows runner and uploads them
-# as downloadable artifacts. No local Windows machine required.
+# Builds Snoper.exe + Snoper-Setup.exe on a Windows runner.
+#   - push to main / manual run -> uploads artifacts (for testing)
+#   - push a tag like v1.0.1     -> ALSO publishes a GitHub Release with the
+#                                   installer attached. The app's auto-updater
+#                                   reads that release to update itself.
 
 on:
   push:
     branches: [ main, master ]
-  workflow_dispatch:        # lets you trigger it manually from the Actions tab
+    tags: [ 'v*' ]
+  workflow_dispatch:
+
+permissions:
+  contents: write          # needed to create releases
 
 jobs:
   build:
@@ -20,6 +27,28 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
+
+      - name: Derive version
+        id: ver
+        shell: pwsh
+        run: |
+          if ($env:GITHUB_REF -like 'refs/tags/v*') {
+            $v = $env:GITHUB_REF -replace 'refs/tags/v',''
+          } else {
+            $v = '0.0.0-dev'
+          }
+          "version=$v" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          Write-Host "Version: $v"
+
+      - name: Stamp version into the app
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: pwsh
+        run: |
+          $v = '${{ steps.ver.outputs.version }}'
+          (Get-Content snoper/version.py) `
+            -replace '__version__ = ".*"', "__version__ = ""$v""" `
+            | Set-Content snoper/version.py
+          Get-Content snoper/version.py
 
       - name: Install dependencies
         run: |
@@ -37,11 +66,13 @@ jobs:
 
       - name: Build installer (Snoper-Setup.exe)
         working-directory: build
+        shell: pwsh
         run: |
           $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
           if (-not (Test-Path $iscc)) { $iscc = "$env:ProgramFiles\Inno Setup 6\ISCC.exe" }
-          Write-Host "Using ISCC at: $iscc"
-          & $iscc installer.iss
+          $v = '${{ steps.ver.outputs.version }}'
+          Write-Host "Using ISCC at: $iscc (version $v)"
+          & $iscc "/DAppVersion=$v" installer.iss
 
       - name: Upload standalone exe
         uses: actions/upload-artifact@v4
@@ -54,3 +85,12 @@ jobs:
         with:
           name: Snoper-Setup
           path: build/Output/Snoper-Setup.exe
+
+      - name: Publish GitHub Release (on tag)
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            build/Output/Snoper-Setup.exe
+            dist/Snoper.exe
+          generate_release_notes: true

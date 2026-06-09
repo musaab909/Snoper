@@ -39,7 +39,7 @@ def _make_image(color):
 
 
 class TrayApp:
-    def __init__(self, recorder: Recorder, settings, open_settings=None, open_browser=None):
+    def __init__(self, recorder: Recorder, settings, open_settings=None, open_browser=None, check_updates=None):
         if pystray is None:
             raise RuntimeError(
                 "pystray/Pillow not installed. Install with: pip install pystray pillow"
@@ -48,6 +48,7 @@ class TrayApp:
         self.settings = settings
         self.open_settings = open_settings
         self.open_browser = open_browser
+        self.check_updates = check_updates
         self._icon: Optional["pystray.Icon"] = None
 
     def _label(self) -> str:
@@ -62,6 +63,7 @@ class TrayApp:
             pystray.MenuItem("Open recordings folder", self._open_folder),
             pystray.MenuItem("Recordings & search…", self._open_browser) if self.open_browser else None,
             pystray.MenuItem("Settings…", self._open_settings) if self.open_settings else None,
+            pystray.MenuItem("Check for updates…", self._check_updates) if self.check_updates else None,
             pystray.Menu.SEPARATOR,
             pystray.MenuItem("Quit", self._quit),
         )
@@ -95,6 +97,14 @@ class TrayApp:
     def _open_browser(self, *_):
         if self.open_browser:
             self.open_browser()
+
+    def _check_updates(self, *_):
+        if self.check_updates:
+            import threading
+
+            threading.Thread(target=self.check_updates, daemon=True).start()
+            if self._icon is not None:
+                self._icon.notify("Checking for updates…", "Snoper")
 
     def _quit(self, *_):
         self.recorder.stop()

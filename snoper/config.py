@@ -69,6 +69,11 @@ class Settings:
     paused: bool = False
     # Visible recording indicator is always on by design; no stealth/hidden mode.
 
+    # --- Auto-update (checks GitHub Releases) ---
+    auto_update: bool = True          # check + apply updates automatically at startup
+    update_check_on_start: bool = True
+    update_token: Optional[str] = None  # only needed if the repo/releases are private
+
     # --- Scheduling: list of {start: "HH:MM", end: "HH:MM", days: [0..6]} ---
     # Empty list = record 24/7. See snoper.scheduler.Schedule.
     schedule: list = field(default_factory=list)

@@ -15,8 +15,30 @@ import signal
 import sys
 import time
 
+import threading
+
 from .config import Settings
 from .recorder import Recorder, RecorderState
+
+
+def _maybe_auto_update(settings: Settings) -> None:
+    """Background update check at startup; applies silently if enabled.
+
+    Runs on a daemon thread so it never blocks recording. If an update is
+    installed, the installer (silent) replaces the exe and relaunches Snoper.
+    """
+    if not (settings.auto_update and settings.update_check_on_start):
+        return
+
+    def worker():
+        try:
+            from .updater import check_and_update
+
+            check_and_update(settings, on_status=lambda m: print(f"[snoper:update] {m}"))
+        except Exception as e:  # pragma: no cover - defensive
+            print(f"[snoper] auto-update error: {e}")
+
+    threading.Thread(target=worker, name="snoper-update", daemon=True).start()
 
 
 def _build_transcribe_callback(settings: Settings):
@@ -89,7 +111,23 @@ def run_tray(settings: Settings) -> int:
         on_state=on_state,
         on_segment_complete=_build_transcribe_callback(settings),
     )
-    app = TrayApp(rec, settings, open_settings=open_settings, open_browser=open_browser)
+    def check_updates():
+        from .updater import check_and_update
+
+        def notify(msg):
+            print(f"[snoper:update] {msg}")
+            a = tray_ref.get("app")
+            if a and a._icon is not None:
+                a._icon.notify(msg, "Snoper update")
+
+        check_and_update(settings, on_status=notify)
+
+    app = TrayApp(
+        rec, settings,
+        open_settings=open_settings,
+        open_browser=open_browser,
+        check_updates=check_updates,
+    )
     tray_ref["app"] = app
     rec.start()
     app.run()  # blocks until Quit
@@ -106,6 +144,8 @@ def main(argv=None) -> int:
     settings.recordings_dir and __import__("pathlib").Path(settings.recordings_dir).mkdir(
         parents=True, exist_ok=True
     )
+
+    _maybe_auto_update(settings)
 
     if args.headless:
         return run_headless(settings)
