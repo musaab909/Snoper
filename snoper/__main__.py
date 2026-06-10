@@ -11,6 +11,7 @@ Run with:  python -m snoper            (tray app)
 from __future__ import annotations
 
 import argparse
+import os
 import signal
 import sys
 import time
@@ -188,9 +189,21 @@ def main(argv=None) -> int:
     args = parser.parse_args(argv)
 
     if args.selftest:
+        # Windowed exe has no console, so also write the result to a log file the
+        # CI smoke-test can read to see exactly which module/import failed.
+        import tempfile
+        import traceback
+
+        log = os.path.join(tempfile.gettempdir(), "snoper_selftest.log")
         try:
-            return _selftest()
+            rc = _selftest()
+            with open(log, "w") as f:
+                f.write("SELFTEST_OK\n")
+            return rc
         except Exception as e:
+            with open(log, "w") as f:
+                f.write(f"SELFTEST_FAILED: {type(e).__name__}: {e}\n\n")
+                f.write(traceback.format_exc())
             print(f"SELFTEST_FAILED: {type(e).__name__}: {e}")
             return 1
 

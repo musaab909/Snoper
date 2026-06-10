@@ -66,13 +66,20 @@ jobs:
         run: |
           # Runs the actual frozen exe and fails the build if it can't start
           # (catches packaging/relative-import regressions before release).
+          $log = Join-Path $env:TEMP "snoper_selftest.log"
+          if (Test-Path $log) { Remove-Item $log }
           $p = Start-Process -FilePath "dist\Snoper.exe" -ArgumentList "--selftest" -PassThru
           if (-not $p.WaitForExit(90000)) {
             $p.Kill()
             throw "Snoper.exe --selftest hung (likely a startup-crash dialog)."
           }
+          if (Test-Path $log) {
+            Write-Host "----- selftest log -----"
+            Get-Content $log
+            Write-Host "------------------------"
+          }
           if ($p.ExitCode -ne 0) {
-            throw "Snoper.exe --selftest failed (exit code $($p.ExitCode))."
+            throw "Snoper.exe --selftest failed (exit code $($p.ExitCode)). See log above."
           }
           Write-Host "OK: Snoper.exe launched and passed selftest on Windows."
 
