@@ -31,8 +31,11 @@ WizardStyle=modern
 ; Per-user install needs no admin; use lowest privileges:
 PrivilegesRequired=lowest
 ArchitecturesInstallIn64BitMode=x64compatible
-; Silent auto-updates: close the running app so its exe can be replaced.
-CloseApplications=yes
+; Silent auto-updates: force-close the running app so its exe can be replaced.
+; 'force' terminates without prompting (no "unable to close applications" dialog);
+; the [Code] PrepareToInstall below also taskkills it as a belt-and-suspenders.
+CloseApplications=force
+CloseApplicationsFilter=*.exe
 RestartApplications=no
 
 [Languages]
@@ -62,3 +65,18 @@ Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; \
 Filename: "{app}\{#AppExeName}"; Description: "Launch Snoper now"; \
     Flags: nowait postinstall skipifsilent
 Filename: "{app}\{#AppExeName}"; Flags: nowait runasoriginaluser; Check: WizardSilent
+
+[Code]
+{ Force-close any running Snoper before files are replaced. This makes both
+  manual reinstalls and silent auto-updates work even while the tray app is
+  running, avoiding the "unable to close all applications" error. }
+function PrepareToInstall(var NeedsRestart: Boolean): String;
+var
+  ResultCode: Integer;
+begin
+  { No /T: the silent updater launches this installer as a child of Snoper.exe,
+    so killing the tree would kill the installer too. Match by image name only. }
+  Exec('taskkill.exe', '/F /IM {#AppExeName}', '', SW_HIDE,
+       ewWaitUntilTerminated, ResultCode);
+  Result := '';
+end;
