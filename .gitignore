@@ -6,3 +6,6 @@ dist/
 build/Output/
 *.spec.bak
 .pytest_cache/
+
+release_dl/
+artifacts/

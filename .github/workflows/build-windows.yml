@@ -61,6 +61,21 @@ jobs:
       - name: Build Snoper.exe (PyInstaller)
         run: pyinstaller --noconfirm --clean build/snoper.spec
 
+      - name: Smoke-test the exe on real Windows
+        shell: pwsh
+        run: |
+          # Runs the actual frozen exe and fails the build if it can't start
+          # (catches packaging/relative-import regressions before release).
+          $p = Start-Process -FilePath "dist\Snoper.exe" -ArgumentList "--selftest" -PassThru
+          if (-not $p.WaitForExit(90000)) {
+            $p.Kill()
+            throw "Snoper.exe --selftest hung (likely a startup-crash dialog)."
+          }
+          if ($p.ExitCode -ne 0) {
+            throw "Snoper.exe --selftest failed (exit code $($p.ExitCode))."
+          }
+          Write-Host "OK: Snoper.exe launched and passed selftest on Windows."
+
       - name: Install Inno Setup
         run: choco install innosetup --no-progress -y
 

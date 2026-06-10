@@ -151,10 +151,48 @@ def run_tray(settings: Settings) -> int:
     return 0
 
 
+def _selftest() -> int:
+    """Import-and-wire smoke test for the frozen exe.
+
+    Exercises every module the app loads (including the lazily-imported tray, UI,
+    transcription, updater and platform layers) and builds the core objects, then
+    exits. Run as `Snoper.exe --selftest` on a real Windows runner in CI so a
+    packaging/import regression fails the build instead of reaching users.
+    """
+    import importlib
+
+    mods = [
+        "snoper.config", "snoper.recorder", "snoper.updater", "snoper.version",
+        "snoper.scheduler", "snoper.postprocess",
+        "snoper.audio.vox", "snoper.audio.capture", "snoper.audio.writer",
+        "snoper.audio.dsp", "snoper.audio.analyzer",
+        "snoper.storage.index", "snoper.transcribe.engine",
+        "snoper.tray.icon", "snoper.ui.settings", "snoper.ui.browser",
+        "snoper.platform.autostart_win",
+    ]
+    for m in mods:
+        importlib.import_module(m)
+    # Build the core objects to catch wiring errors, not just import errors.
+    from .config import Settings
+    from .recorder import Recorder
+
+    Recorder(Settings())
+    print("SELFTEST_OK")
+    return 0
+
+
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(prog="snoper", description="Voice-activated recorder")
     parser.add_argument("--headless", action="store_true", help="run without tray icon")
+    parser.add_argument("--selftest", action="store_true", help="import/wire smoke test, then exit")
     args = parser.parse_args(argv)
+
+    if args.selftest:
+        try:
+            return _selftest()
+        except Exception as e:
+            print(f"SELFTEST_FAILED: {type(e).__name__}: {e}")
+            return 1
 
     settings = Settings.load()
     settings.recordings_dir and __import__("pathlib").Path(settings.recordings_dir).mkdir(
