@@ -4,18 +4,34 @@
 
 # -*- mode: python ; coding: utf-8 -*-
 import os
+import sys
+
+# Ensure the repo root is importable so collect_submodules can actually find the
+# `snoper` package while this spec runs (the spec body executes before PyInstaller
+# injects pathex into sys.path). Without this, lazily-imported submodules such as
+# snoper.audio.analyzer are silently omitted from the bundle.
+_REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(SPECPATH), '.'))
+if _REPO_ROOT not in sys.path:
+    sys.path.insert(0, _REPO_ROOT)
+
 from PyInstaller.utils.hooks import collect_submodules
 
 block_cipher = None
 
+_snoper_submodules = collect_submodules('snoper')
+assert any(m == 'snoper.audio.analyzer' for m in _snoper_submodules), (
+    "collect_submodules('snoper') failed to enumerate the package; "
+    f"got {_snoper_submodules!r}"
+)
+
 # Several snoper submodules are imported lazily (ui.*, transcribe.*, platform.*),
-# so collect them all explicitly rather than relying on static analysis.
+# so collect them all rather than relying on static analysis.
 hidden = [
     'pystray._win32',
     'PIL._tkinter_finder',
     'sounddevice',
     '_sounddevice_data',
-] + collect_submodules('snoper')
+] + _snoper_submodules
 
 a = Analysis(
     # Entry is the launcher (NOT snoper/__main__.py) so the package imports as a
