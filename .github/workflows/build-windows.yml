@@ -35,7 +35,8 @@ jobs:
           if ($env:GITHUB_REF -like 'refs/tags/v*') {
             $v = $env:GITHUB_REF -replace 'refs/tags/v',''
           } else {
-            $v = '0.0.0-dev'
+            # Inno Setup's VersionInfoVersion must be numeric, so dev builds use 0.0.0.
+            $v = '0.0.0'
           }
           "version=$v" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
           Write-Host "Version: $v"
