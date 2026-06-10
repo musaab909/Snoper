@@ -4,20 +4,27 @@
 
 # -*- mode: python ; coding: utf-8 -*-
 import os
+from PyInstaller.utils.hooks import collect_submodules
 
 block_cipher = None
 
+# Several snoper submodules are imported lazily (ui.*, transcribe.*, platform.*),
+# so collect them all explicitly rather than relying on static analysis.
+hidden = [
+    'pystray._win32',
+    'PIL._tkinter_finder',
+    'sounddevice',
+    '_sounddevice_data',
+] + collect_submodules('snoper')
+
 a = Analysis(
-    ['../snoper/__main__.py'],
+    # Entry is the launcher (NOT snoper/__main__.py) so the package imports as a
+    # proper package and relative imports resolve in the frozen exe.
+    ['../launcher.py'],
     pathex=[os.path.abspath('..')],
     binaries=[],
     datas=[],
-    hiddenimports=[
-        'pystray._win32',
-        'PIL._tkinter_finder',
-        'sounddevice',
-        '_sounddevice_data',
-    ],
+    hiddenimports=hidden,
     hookspath=[],
     runtime_hooks=[],
     excludes=[],
