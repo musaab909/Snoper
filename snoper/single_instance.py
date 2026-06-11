@@ -32,6 +32,11 @@ class SingleInstance:
             if os.name == "nt":
                 import msvcrt
 
+                # Lock a FIXED region (byte 0). msvcrt.locking() locks from the
+                # current file position, so seek to 0 first — otherwise the
+                # position depends on file contents and two instances would lock
+                # different bytes and never conflict.
+                self._fh.seek(0)
                 msvcrt.locking(self._fh.fileno(), msvcrt.LK_NBLCK, 1)
             else:
                 import fcntl
@@ -43,10 +48,15 @@ class SingleInstance:
             self._fh = None
             return False
 
-        self._fh.seek(0)
-        self._fh.truncate()
-        self._fh.write(str(os.getpid()))
-        self._fh.flush()
+        # Record our PID after byte 0 so we don't disturb the locked region on
+        # Windows (writing at/over the locked byte is allowed for the lock owner,
+        # but keeping it simple: append a marker line).
+        try:
+            self._fh.seek(0, os.SEEK_END)
+            self._fh.write(f" pid={os.getpid()}\n")
+            self._fh.flush()
+        except OSError:
+            pass
         return True
 
     def release(self) -> None:
