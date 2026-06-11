@@ -11,7 +11,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime, time
-from typing import List, Optional
 
 
 def _parse_hhmm(s: str) -> time:
@@ -23,7 +22,7 @@ def _parse_hhmm(s: str) -> time:
 class Window:
     start: str            # "HH:MM"
     end: str              # "HH:MM"
-    days: List[int]       # 0=Mon .. 6=Sun; empty = every day
+    days: list[int]       # 0=Mon .. 6=Sun; empty = every day
 
     def contains(self, now: datetime) -> bool:
         start = _parse_hhmm(self.start)
@@ -43,16 +42,16 @@ class Window:
 
 
 class Schedule:
-    def __init__(self, windows: Optional[List[Window]] = None):
+    def __init__(self, windows: list[Window] | None = None):
         self.windows = windows or []
 
     @classmethod
-    def from_config(cls, raw: Optional[list]) -> "Schedule":
+    def from_config(cls, raw: list | None) -> Schedule:
         if not raw:
             return cls([])
         return cls([Window(w["start"], w["end"], w.get("days", [])) for w in raw])
 
-    def is_active(self, now: Optional[datetime] = None) -> bool:
+    def is_active(self, now: datetime | None = None) -> bool:
         if not self.windows:
             return True  # no schedule = always on
         now = now or datetime.now()

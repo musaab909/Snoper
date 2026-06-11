@@ -5,7 +5,6 @@ synthetic loud/quiet frames, then asserts files land on disk and state callbacks
 fire START/STOP transitions.
 """
 
-import threading
 import time
 
 import numpy as np
@@ -13,7 +12,6 @@ import numpy as np
 import snoper.recorder as recorder_mod
 from snoper.config import MODE_VOX, Settings
 from snoper.recorder import Recorder, RecorderState
-
 
 SAMPLES = 480
 

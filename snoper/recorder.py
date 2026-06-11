@@ -8,14 +8,14 @@ optional callback so the tray icon can reflect whether we're actively recording.
 from __future__ import annotations
 
 import threading
+from collections.abc import Callable
 from enum import Enum
-from typing import Callable, Optional
 
-from .config import MODE_CONTINUOUS, MODE_VOX, Settings
 from .audio.capture import AudioCapture, CaptureError, estimate_ambient_rms
 from .audio.dsp import DspChain
 from .audio.vox import EventType, VoxEngine
 from .audio.writer import SegmentWriter
+from .config import MODE_CONTINUOUS, MODE_VOX, Settings
 from .postprocess import PostProcessor
 from .scheduler import Schedule
 
@@ -31,7 +31,7 @@ class Recorder:
     def __init__(
         self,
         settings: Settings,
-        on_state: Optional[Callable[[RecorderState], None]] = None,
+        on_state: Callable[[RecorderState], None] | None = None,
         on_segment_complete=None,
     ):
         self.settings = settings
@@ -41,11 +41,11 @@ class Recorder:
         self._post = PostProcessor.from_settings(settings)
         self._schedule = Schedule.from_config(getattr(settings, "schedule", None))
 
-        self._thread: Optional[threading.Thread] = None
+        self._thread: threading.Thread | None = None
         self._stop = threading.Event()
         self._pause = threading.Event()
         self._state = RecorderState.STOPPED
-        self.last_error: Optional[str] = None
+        self.last_error: str | None = None
 
     @property
     def state(self) -> RecorderState:

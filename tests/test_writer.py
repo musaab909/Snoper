@@ -4,9 +4,8 @@ import wave
 
 import numpy as np
 
-from snoper.config import MODE_DICTATION, MODE_VOX, Settings
 from snoper.audio.vox import EventType, VoxEvent
-
+from snoper.config import MODE_DICTATION, MODE_VOX, Settings
 
 SAMPLES = 480
 

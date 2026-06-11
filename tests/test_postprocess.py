@@ -1,6 +1,5 @@
 """Tests for the post-processing pipeline (no external services required)."""
 
-from pathlib import Path
 
 from snoper.config import Settings
 from snoper.postprocess import CloudUpload, PostProcessor

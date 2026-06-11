@@ -11,7 +11,6 @@ from __future__ import annotations
 import os
 import subprocess
 import sys
-from typing import Optional
 
 from ..recorder import Recorder, RecorderState
 
@@ -49,7 +48,7 @@ class TrayApp:
         self.open_settings = open_settings
         self.open_browser = open_browser
         self.check_updates = check_updates
-        self._icon: Optional["pystray.Icon"] = None
+        self._icon: pystray.Icon | None = None
 
     def _label(self) -> str:
         return f"Snoper — {self.recorder.state.value}"

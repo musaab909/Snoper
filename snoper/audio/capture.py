@@ -9,7 +9,7 @@ no-op and only the microphone is captured.
 from __future__ import annotations
 
 import queue
-from typing import Iterator, List, Optional
+from collections.abc import Iterator
 
 import numpy as np
 
@@ -25,7 +25,7 @@ class CaptureError(RuntimeError):
     pass
 
 
-def list_input_devices() -> List[dict]:
+def list_input_devices() -> list[dict]:
     """Return available input devices as [{index, name, channels, default}]."""
     if _sd is None:
         return []
@@ -68,8 +68,8 @@ class AudioCapture:
                 "sounddevice is not installed. Install with: pip install sounddevice"
             )
         self.settings = settings
-        self._q: "queue.Queue[np.ndarray]" = queue.Queue()
-        self._stream: Optional["_sd.InputStream"] = None
+        self._q: queue.Queue[np.ndarray] = queue.Queue()
+        self._stream: _sd.InputStream | None = None
         self._frame_samples = settings.frame_samples
 
     def _callback(self, indata, frames, time_info, status):  # pragma: no cover - realtime
@@ -77,7 +77,7 @@ class AudioCapture:
         mono = indata.mean(axis=1) if indata.ndim > 1 else indata
         self._q.put(mono.copy())
 
-    def __enter__(self) -> "AudioCapture":
+    def __enter__(self) -> AudioCapture:
         extra = None
         if self.settings.capture_system_audio:
             extra = _wasapi_loopback_settings()

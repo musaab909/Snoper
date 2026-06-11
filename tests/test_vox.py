@@ -5,7 +5,6 @@ import pytest
 
 from snoper.audio.vox import EventType, VoxEngine, VoxState, rms
 
-
 FRAME_MS = 30
 SAMPLES = 480  # 16kHz * 30ms
 

@@ -9,7 +9,6 @@ from __future__ import annotations
 import sqlite3
 from datetime import datetime
 from pathlib import Path
-from typing import List, Optional
 
 
 class RecordingIndex:
@@ -49,7 +48,7 @@ class RecordingIndex:
     def add(
         self,
         audio_path: Path,
-        started_at: Optional[datetime],
+        started_at: datetime | None,
         duration_s: float,
         transcript: str = "",
     ) -> None:
@@ -66,7 +65,7 @@ class RecordingIndex:
                     (cur.lastrowid, transcript),
                 )
 
-    def search(self, query: str, limit: int = 50) -> List[dict]:
+    def search(self, query: str, limit: int = 50) -> list[dict]:
         with self._connect() as conn:
             if getattr(self, "_has_fts", False):
                 try:
@@ -85,7 +84,7 @@ class RecordingIndex:
             ).fetchall()
             return [dict(r) for r in rows]
 
-    def all(self, limit: int = 100) -> List[dict]:
+    def all(self, limit: int = 100) -> list[dict]:
         with self._connect() as conn:
             rows = conn.execute(
                 "SELECT * FROM recordings ORDER BY started_at DESC LIMIT ?", (limit,)

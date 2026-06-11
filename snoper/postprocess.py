@@ -13,13 +13,15 @@ absent — the step is skipped with a logged note rather than crashing the recor
 
 from __future__ import annotations
 
-import os
+import logging
 import shutil
 import smtplib
 import subprocess
 from email.message import EmailMessage
 from pathlib import Path
-from typing import List, Optional, Protocol
+from typing import Protocol
+
+log = logging.getLogger("snoper.postprocess")
 
 
 class Step(Protocol):
@@ -68,7 +70,7 @@ class Encrypt:
         try:
             from cryptography.fernet import Fernet  # type: ignore
         except Exception:
-            print("[snoper] encryption skipped: pip install cryptography")
+            log.warning("encryption skipped: pip install cryptography")
             return path
         token = Fernet(self._key()).encrypt(path.read_bytes())
         out = path.with_suffix(path.suffix + ".enc")
@@ -81,7 +83,7 @@ class Encrypt:
 class CloudUpload:
     """Copy to a destination folder (e.g. a synced Dropbox dir) or FTP upload."""
 
-    def __init__(self, dest_dir: Optional[str] = None, ftp: Optional[dict] = None):
+    def __init__(self, dest_dir: str | None = None, ftp: dict | None = None):
         self.dest_dir = dest_dir
         self.ftp = ftp
 
@@ -105,7 +107,7 @@ class CloudUpload:
                 with open(path, "rb") as f:
                     ftp.storbinary(f"STOR {path.name}", f)
         except Exception as e:
-            print(f"[snoper] FTP upload failed: {e}")
+            log.warning("FTP upload failed: %s", e)
 
 
 class EmailDelivery:
@@ -127,7 +129,7 @@ class EmailDelivery:
                 s.login(self.smtp["user"], self.smtp["password"])
                 s.send_message(msg)
         except Exception as e:
-            print(f"[snoper] email delivery failed: {e}")
+            log.warning("email delivery failed: %s", e)
         return path
 
 
@@ -138,12 +140,12 @@ class PostProcessor:
     the chain continues with whatever path the previous step returned.
     """
 
-    def __init__(self, steps: Optional[List[Step]] = None):
-        self.steps: List[Step] = steps or []
+    def __init__(self, steps: list[Step] | None = None):
+        self.steps: list[Step] = steps or []
 
     @classmethod
-    def from_settings(cls, settings) -> "PostProcessor":
-        steps: List[Step] = []
+    def from_settings(cls, settings) -> PostProcessor:
+        steps: list[Step] = []
         pp = getattr(settings, "postprocess", None) or {}
         if pp.get("mp3"):
             steps.append(
@@ -170,5 +172,5 @@ class PostProcessor:
             try:
                 current = step.run(current)
             except Exception as e:
-                print(f"[snoper] post-process step {type(step).__name__} failed: {e}")
+                log.warning("post-process step %s failed: %s", type(step).__name__, e)
         return current

@@ -11,7 +11,6 @@ import json
 import queue
 import threading
 from pathlib import Path
-from typing import Optional
 
 from ..config import Settings
 from ..storage.index import RecordingIndex
@@ -25,8 +24,8 @@ except Exception:  # pragma: no cover - optional heavy dependency
 class TranscriptionQueue:
     def __init__(self, settings: Settings):
         self.settings = settings
-        self._q: "queue.Queue[tuple]" = queue.Queue()
-        self._thread: Optional[threading.Thread] = None
+        self._q: queue.Queue[tuple] = queue.Queue()
+        self._thread: threading.Thread | None = None
         self._stop = threading.Event()
         self._model = None
         self._index = RecordingIndex(settings.recordings_dir)

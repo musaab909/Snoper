@@ -15,7 +15,6 @@ import json
 import wave
 from datetime import datetime
 from pathlib import Path
-from typing import List, Optional
 
 import numpy as np
 
@@ -67,15 +66,15 @@ class SegmentWriter:
         self.out_dir = Path(settings.recordings_dir)
         self.out_dir.mkdir(parents=True, exist_ok=True)
 
-        self._current: Optional[_WavFile] = None
-        self._seg_started: Optional[datetime] = None
+        self._current: _WavFile | None = None
+        self._seg_started: datetime | None = None
         self._seg_samples = 0
 
         # Dictation mode: one continuous file + timestamp index.
         self._dictation = settings.mode == MODE_DICTATION
-        self._dict_file: Optional[_WavFile] = None
-        self._dict_marks: List[dict] = []
-        self._dict_path: Optional[Path] = None
+        self._dict_file: _WavFile | None = None
+        self._dict_marks: list[dict] = []
+        self._dict_path: Path | None = None
 
     # --- naming ---
     def _timestamp_name(self, when: datetime, ext: str) -> Path:
@@ -91,7 +90,7 @@ class SegmentWriter:
         return self._dict_file
 
     # --- event handling ---
-    def handle(self, events: List[VoxEvent]) -> None:
+    def handle(self, events: list[VoxEvent]) -> None:
         for ev in events:
             if ev.type is EventType.START:
                 self._start_segment(ev)

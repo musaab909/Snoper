@@ -11,15 +11,17 @@ Run with:  python -m snoper            (tray app)
 from __future__ import annotations
 
 import argparse
+import logging
 import os
 import signal
-import sys
+import threading
 import time
 
-import threading
-
 from .config import Settings
+from .logging_setup import setup_logging
 from .recorder import Recorder, RecorderState
+
+log = logging.getLogger("snoper.main")
 
 
 def _maybe_auto_update(settings: Settings) -> None:
@@ -39,9 +41,9 @@ def _maybe_auto_update(settings: Settings) -> None:
         try:
             from .updater import check_and_update
 
-            return check_and_update(settings, on_status=lambda m: print(f"[snoper:update] {m}"))
-        except Exception as e:  # pragma: no cover - defensive
-            print(f"[snoper] auto-update error: {e}")
+            return check_and_update(settings, on_status=lambda m: log.info("update: %s", m))
+        except Exception:  # pragma: no cover - defensive
+            log.exception("auto-update error")
             return False
 
     def worker():
@@ -63,8 +65,8 @@ def _build_transcribe_callback(settings: Settings):
         return None
     try:
         from .transcribe.engine import TranscriptionQueue
-    except Exception as e:  # pragma: no cover
-        print(f"[snoper] transcription unavailable: {e}", file=sys.stderr)
+    except Exception:  # pragma: no cover
+        log.exception("transcription unavailable")
         return None
     tq = TranscriptionQueue(settings)
     tq.start()
@@ -75,7 +77,7 @@ def run_headless(settings: Settings) -> int:
     """Run without a tray (Ctrl-C to stop). Useful on servers and for testing."""
     rec = Recorder(
         settings,
-        on_state=lambda s: print(f"[snoper] {s.value}"),
+        on_state=lambda s: log.info("state: %s", s.value),
         on_segment_complete=_build_transcribe_callback(settings),
     )
     rec.start()
@@ -87,12 +89,12 @@ def run_headless(settings: Settings) -> int:
 
     signal.signal(signal.SIGINT, _sig)
     signal.signal(signal.SIGTERM, _sig)
-    print("[snoper] running headless; press Ctrl-C to stop")
+    log.info("running headless; press Ctrl-C to stop")
     while not stop["v"] and rec.state is not RecorderState.STOPPED:
         time.sleep(0.2)
     rec.stop()
     if rec.last_error:
-        print(f"[snoper] error: {rec.last_error}", file=sys.stderr)
+        log.error("recorder error: %s", rec.last_error)
         return 1
     return 0
 
@@ -165,6 +167,7 @@ def _selftest() -> int:
     mods = [
         "snoper.config", "snoper.recorder", "snoper.updater", "snoper.version",
         "snoper.scheduler", "snoper.postprocess",
+        "snoper.logging_setup", "snoper.single_instance",
         "snoper.audio.vox", "snoper.audio.capture", "snoper.audio.writer",
         "snoper.audio.dsp", "snoper.audio.analyzer",
         "snoper.storage.index", "snoper.transcribe.engine",
@@ -194,33 +197,48 @@ def main(argv=None) -> int:
         import tempfile
         import traceback
 
-        log = os.path.join(tempfile.gettempdir(), "snoper_selftest.log")
+        log_path = os.path.join(tempfile.gettempdir(), "snoper_selftest.log")
         try:
             rc = _selftest()
-            with open(log, "w") as f:
+            with open(log_path, "w") as f:
                 f.write("SELFTEST_OK\n")
             return rc
         except Exception as e:
-            with open(log, "w") as f:
+            with open(log_path, "w") as f:
                 f.write(f"SELFTEST_FAILED: {type(e).__name__}: {e}\n\n")
                 f.write(traceback.format_exc())
             print(f"SELFTEST_FAILED: {type(e).__name__}: {e}")
             return 1
 
-    settings = Settings.load()
-    settings.recordings_dir and __import__("pathlib").Path(settings.recordings_dir).mkdir(
-        parents=True, exist_ok=True
-    )
+    setup_logging()
+    log.info("Snoper starting (headless=%s)", args.headless)
 
-    _maybe_auto_update(settings)
+    # Single-instance guard: never run two recorders against the same mic.
+    from .single_instance import SingleInstance
 
-    if args.headless:
-        return run_headless(settings)
+    instance = SingleInstance("snoper")
+    if not instance.acquire():
+        log.warning("another Snoper instance is already running; exiting")
+        return 0
+
     try:
-        return run_tray(settings)
-    except RuntimeError as e:
-        print(f"[snoper] {e}\nFalling back to headless mode.", file=sys.stderr)
-        return run_headless(settings)
+        settings = Settings.load()
+        from pathlib import Path
+
+        if settings.recordings_dir:
+            Path(settings.recordings_dir).mkdir(parents=True, exist_ok=True)
+
+        _maybe_auto_update(settings)
+
+        if args.headless:
+            return run_headless(settings)
+        try:
+            return run_tray(settings)
+        except RuntimeError:
+            log.exception("tray unavailable; falling back to headless")
+            return run_headless(settings)
+    finally:
+        instance.release()
 
 
 if __name__ == "__main__":

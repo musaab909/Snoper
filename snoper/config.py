@@ -11,7 +11,6 @@ import json
 import os
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import Optional
 
 
 def _default_recordings_dir() -> str:
@@ -40,7 +39,7 @@ class Settings:
     samplerate: int = 16000          # 16 kHz is plenty for speech + Whisper
     channels: int = 1
     frame_ms: int = 30               # VOX analysis frame size
-    input_device: Optional[int] = None       # None = system default
+    input_device: int | None = None       # None = system default
     capture_system_audio: bool = False        # Windows WASAPI loopback
 
     # --- VOX engine ---
@@ -62,7 +61,7 @@ class Settings:
     # --- Transcription ---
     transcribe: bool = False
     whisper_model: str = "base"      # tiny|base|small|medium|large
-    whisper_language: Optional[str] = None   # None = auto-detect
+    whisper_language: str | None = None   # None = auto-detect
 
     # --- App ---
     autostart: bool = False
@@ -73,7 +72,8 @@ class Settings:
     auto_update: bool = True          # check + apply updates automatically at startup
     update_check_on_start: bool = True
     update_check_interval_h: float = 6.0  # re-check every N hours while running (0 = only at start)
-    update_token: Optional[str] = None  # only needed if the repo/releases are private
+    update_token: str | None = None  # only needed if the repo/releases are private
+    update_require_signature: bool = True  # only run updates with a valid Authenticode signature
 
     # --- Scheduling: list of {start: "HH:MM", end: "HH:MM", days: [0..6]} ---
     # Empty list = record 24/7. See snoper.scheduler.Schedule.
@@ -101,7 +101,7 @@ class Settings:
         return int(self.samplerate * self.frame_ms / 1000)
 
     @classmethod
-    def load(cls, path: Optional[Path] = None) -> "Settings":
+    def load(cls, path: Path | None = None) -> Settings:
         path = path or _config_path()
         if not path.exists():
             return cls()
@@ -115,7 +115,7 @@ class Settings:
         settings.validate()
         return settings
 
-    def save(self, path: Optional[Path] = None) -> None:
+    def save(self, path: Path | None = None) -> None:
         path = path or _config_path()
         self.validate()
         path.parent.mkdir(parents=True, exist_ok=True)

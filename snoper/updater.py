@@ -17,7 +17,9 @@ No third-party deps: uses urllib. For a private repo, set a token in settings
 
 from __future__ import annotations
 
+import hashlib
 import json
+import logging
 import os
 import re
 import ssl
@@ -26,9 +28,10 @@ import sys
 import tempfile
 import urllib.request
 from dataclasses import dataclass
-from typing import Optional
 
 from .version import GITHUB_REPO, __version__
+
+log = logging.getLogger("snoper.updater")
 
 
 @dataclass
@@ -49,7 +52,7 @@ def is_newer(remote: str, local: str) -> bool:
     return parse_version(remote) > parse_version(local)
 
 
-def _request(url: str, token: Optional[str], accept: str) -> urllib.request.Request:
+def _request(url: str, token: str | None, accept: str) -> urllib.request.Request:
     req = urllib.request.Request(url)
     req.add_header("Accept", accept)
     req.add_header("User-Agent", "Snoper-Updater")
@@ -58,7 +61,7 @@ def _request(url: str, token: Optional[str], accept: str) -> urllib.request.Requ
     return req
 
 
-def _token(settings) -> Optional[str]:
+def _token(settings) -> str | None:
     return (
         getattr(settings, "update_token", None)
         or os.environ.get("GITHUB_TOKEN")
@@ -66,7 +69,7 @@ def _token(settings) -> Optional[str]:
     )
 
 
-def check(settings, repo: str = GITHUB_REPO) -> Optional[UpdateInfo]:
+def check(settings, repo: str = GITHUB_REPO) -> UpdateInfo | None:
     """Return UpdateInfo if a newer release exists, else None."""
     url = f"https://api.github.com/repos/{repo}/releases/latest"
     token = _token(settings)
@@ -76,7 +79,7 @@ def check(settings, repo: str = GITHUB_REPO) -> Optional[UpdateInfo]:
         with urllib.request.urlopen(req, timeout=15, context=ctx) as resp:
             data = json.load(resp)
     except Exception as e:
-        print(f"[snoper] update check failed: {e}")
+        log.warning("update check failed: %s", e)
         return None
 
     tag = data.get("tag_name", "")
@@ -102,7 +105,7 @@ def check(settings, repo: str = GITHUB_REPO) -> Optional[UpdateInfo]:
     )
 
 
-def download(info: UpdateInfo, settings) -> Optional[str]:
+def download(info: UpdateInfo, settings) -> str | None:
     """Download the installer to a temp file; return its path."""
     token = _token(settings)
     # Asset API URL needs the octet-stream Accept header to get binary content.
@@ -119,28 +122,75 @@ def download(info: UpdateInfo, settings) -> Optional[str]:
                 f.write(chunk)
         return dest
     except Exception as e:
-        print(f"[snoper] update download failed: {e}")
+        log.warning("update download failed: %s", e)
         return None
 
 
-def install(installer_path: str) -> bool:
-    """Launch the installer silently and signal the app to exit.
+def sha256(path: str) -> str:
+    h = hashlib.sha256()
+    with open(path, "rb") as f:
+        for chunk in iter(lambda: f.read(1 << 16), b""):
+            h.update(chunk)
+    return h.hexdigest()
 
-    Inno Setup flags: /VERYSILENT no UI, /SUPPRESSMSGBOXES, /NORESTART, and
-    /CLOSEAPPLICATIONS so it can replace the running exe. The installer keeps the
-    same AppId, so it upgrades in place; it relaunches Snoper via the [Run] step.
+
+def verify_authenticode(installer_path: str) -> bool:
+    """Verify the downloaded installer is Authenticode-signed and valid (Windows).
+
+    Refuses to run an installer whose signature isn't 'Valid'. This is the key
+    supply-chain safeguard: even if a release asset were tampered with, an
+    unsigned/invalid installer is rejected before execution. Returns True if the
+    signature is valid, False otherwise. On non-Windows, returns False (we never
+    auto-run installers off-Windows anyway).
     """
-    if os.name != "nt" or not getattr(sys, "frozen", False):
-        print("[snoper] install skipped (only applies to the packaged Windows exe)")
+    if os.name != "nt":
         return False
     try:
+        ps = (
+            "$ErrorActionPreference='Stop';"
+            f"(Get-AuthenticodeSignature -LiteralPath '{installer_path}').Status"
+        )
+        out = subprocess.run(
+            ["powershell", "-NoProfile", "-NonInteractive", "-Command", ps],
+            capture_output=True, text=True, timeout=30,
+        )
+        status = (out.stdout or "").strip()
+        log.info("installer Authenticode status: %s", status or "(none)")
+        return status == "Valid"
+    except Exception:
+        log.exception("Authenticode verification failed")
+        return False
+
+
+def install(installer_path: str, settings=None) -> bool:
+    """Verify then launch the installer silently and signal the app to exit.
+
+    Inno Setup flags: /VERYSILENT no UI, /SUPPRESSMSGBOXES, /NORESTART. The
+    installer keeps the same AppId, so it upgrades in place and relaunches Snoper
+    via its [Run] step.
+
+    Safety: the installer's Authenticode signature must be Valid before we run it.
+    Set settings.update_require_signature = False only for testing with unsigned
+    builds (not recommended).
+    """
+    if os.name != "nt" or not getattr(sys, "frozen", False):
+        log.info("install skipped (only applies to the packaged Windows exe)")
+        return False
+
+    require_sig = getattr(settings, "update_require_signature", True) if settings else True
+    if require_sig and not verify_authenticode(installer_path):
+        log.error("refusing to run update: installer signature is not Valid (%s)", installer_path)
+        return False
+
+    log.info("update verified (sha256=%s); launching installer", sha256(installer_path)[:16])
+    try:
         subprocess.Popen(
-            [installer_path, "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/CLOSEAPPLICATIONS"],
+            [installer_path, "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART"],
             close_fds=True,
         )
         return True
-    except Exception as e:
-        print(f"[snoper] failed to launch installer: {e}")
+    except Exception:
+        log.exception("failed to launch installer")
         return False
 
 
@@ -163,7 +213,7 @@ def check_and_update(settings, on_status=None) -> bool:
         status("Update download failed")
         return False
     status(f"Installing {info.version}…")
-    if install(path):
+    if install(path, settings):
         return True
     status("Update ready — run the downloaded installer to finish")
     return False

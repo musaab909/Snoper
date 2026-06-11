@@ -19,7 +19,6 @@ import math
 from collections import deque
 from dataclasses import dataclass
 from enum import Enum
-from typing import List, Optional
 
 import numpy as np
 
@@ -38,8 +37,8 @@ class EventType(Enum):
 @dataclass
 class VoxEvent:
     type: EventType
-    frame: Optional[np.ndarray] = None
-    preroll: Optional[List[np.ndarray]] = None
+    frame: np.ndarray | None = None
+    preroll: list[np.ndarray] | None = None
 
 
 def rms(frame: np.ndarray) -> float:
@@ -82,10 +81,10 @@ class VoxEngine:
     def is_loud(self, frame: np.ndarray) -> bool:
         return rms(frame) >= self.threshold
 
-    def process(self, frame: np.ndarray) -> List[VoxEvent]:
+    def process(self, frame: np.ndarray) -> list[VoxEvent]:
         """Feed one frame; return zero or more events to act on."""
         loud = self.is_loud(frame)
-        events: List[VoxEvent] = []
+        events: list[VoxEvent] = []
 
         if self.state is VoxState.IDLE:
             self._preroll.append(frame)
@@ -115,7 +114,7 @@ class VoxEngine:
     # for emitting them before subsequent FRAME events.
         return events
 
-    def flush(self) -> List[VoxEvent]:
+    def flush(self) -> list[VoxEvent]:
         """Close any open segment (e.g. on shutdown or pause)."""
         if self.state is VoxState.RECORDING:
             self.state = VoxState.IDLE

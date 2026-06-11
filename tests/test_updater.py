@@ -1,6 +1,6 @@
 """Tests for the updater version logic (no network)."""
 
-from snoper.updater import is_newer, parse_version
+from snoper.updater import install, is_newer, parse_version, sha256
 
 
 def test_parse_version():
@@ -45,3 +45,18 @@ def test_check_returns_none_on_same_version(monkeypatch):
         update_token = None
 
     assert up.check(S()) is None
+
+
+def test_sha256_matches_hashlib(tmp_path):
+    import hashlib
+
+    f = tmp_path / "x.bin"
+    f.write_bytes(b"snoper-bytes")
+    assert sha256(str(f)) == hashlib.sha256(b"snoper-bytes").hexdigest()
+
+
+def test_install_noop_off_windows(tmp_path):
+    # On non-Windows (CI dev/macOS) install must be a safe no-op, never executing.
+    f = tmp_path / "Snoper-Setup.exe"
+    f.write_bytes(b"not really an installer")
+    assert install(str(f)) is False

@@ -8,7 +8,6 @@ hardware. Skipped where sounddevice isn't installed (e.g. dev macOS).
 """
 
 import threading
-import time
 
 import numpy as np
 import pytest

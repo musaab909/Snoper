@@ -12,7 +12,7 @@ from ..config import VALID_MODES, Settings
 
 def open_settings_window(settings: Settings) -> None:
     import tkinter as tk
-    from tkinter import ttk, messagebox
+    from tkinter import messagebox, ttk
 
     from ..audio.capture import list_input_devices
 
