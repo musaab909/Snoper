@@ -9,6 +9,9 @@ soundfile>=0.12        # optional; stdlib `wave` fallback exists
 pystray>=0.19
 pillow>=10.0
 
+# Secret storage (OS keyring: Credential Manager / Keychain / Secret Service)
+keyring>=24.0
+
 # Transcription (optional, heavy)
 faster-whisper>=1.0    # install only if you want speech-to-text
 

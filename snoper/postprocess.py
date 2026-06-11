@@ -97,13 +97,14 @@ class CloudUpload:
         return path
 
     def _ftp_upload(self, path: Path) -> None:
+        cfg = self.ftp or {}
         try:
             from ftplib import FTP
 
-            with FTP(self.ftp["host"]) as ftp:
-                ftp.login(self.ftp.get("user", ""), self.ftp.get("password", ""))
-                if self.ftp.get("dir"):
-                    ftp.cwd(self.ftp["dir"])
+            with FTP(cfg["host"]) as ftp:
+                ftp.login(cfg.get("user", ""), cfg.get("password", ""))
+                if cfg.get("dir"):
+                    ftp.cwd(cfg["dir"])
                 with open(path, "rb") as f:
                     ftp.storbinary(f"STOR {path.name}", f)
         except Exception as e:

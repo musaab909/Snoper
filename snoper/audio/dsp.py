@@ -51,6 +51,7 @@ class NoiseSuppressor:
             self._learned += 1
             return frame  # pass through while learning
 
+        assert self._noise_mag is not None  # always set by the learning phase above
         clean_mag = mag - self.over_subtraction * self._noise_mag
         clean_mag = np.maximum(clean_mag, self.floor * mag)
         cleaned = np.fft.irfft(clean_mag * np.exp(1j * phase), n=len(frame))

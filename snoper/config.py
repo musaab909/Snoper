@@ -112,6 +112,7 @@ class Settings:
         known = {f.name for f in cls.__dataclass_fields__.values()}  # type: ignore[attr-defined]
         filtered = {k: v for k, v in data.items() if k in known}
         settings = cls(**filtered)
+        settings._load_secrets()
         settings.validate()
         return settings
 
@@ -119,4 +120,46 @@ class Settings:
         path = path or _config_path()
         self.validate()
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(json.dumps(asdict(self), indent=2))
+        data = asdict(self)
+        self._redact_secrets(data)  # move secrets to keyring, blank them in JSON
+        path.write_text(json.dumps(data, indent=2))
+
+    # --- secret handling: never persist credentials in plaintext config.json ---
+    def _redact_secrets(self, data: dict) -> None:
+        """Store secrets in the OS keyring and blank them in the JSON dict."""
+        from . import secrets_store
+
+        if self.update_token:
+            secrets_store.set_secret("update_token", self.update_token)
+            data["update_token"] = None
+
+        pp = data.get("postprocess") or {}
+        if pp.get("encrypt_passphrase"):
+            secrets_store.set_secret("encrypt_passphrase", pp["encrypt_passphrase"])
+            pp["encrypt_passphrase"] = None
+        if isinstance(pp.get("ftp"), dict) and pp["ftp"].get("password"):
+            secrets_store.set_secret("ftp_password", pp["ftp"]["password"])
+            pp["ftp"]["password"] = None
+        if isinstance(pp.get("smtp"), dict) and pp["smtp"].get("password"):
+            secrets_store.set_secret("smtp_password", pp["smtp"]["password"])
+            pp["smtp"]["password"] = None
+
+    def _load_secrets(self) -> None:
+        """Repopulate secrets from env/keyring after loading the JSON."""
+        from . import secrets_store
+
+        if not self.update_token:
+            self.update_token = secrets_store.get_secret("update_token", env_var="GITHUB_TOKEN")
+        pp = self.postprocess or {}
+        if pp.get("encrypt_passphrase") in (None, ""):
+            val = secrets_store.get_secret("encrypt_passphrase", env_var="SNOPER_ENCRYPT_PASSPHRASE")
+            if val:
+                pp["encrypt_passphrase"] = val
+        if isinstance(pp.get("ftp"), dict) and not pp["ftp"].get("password"):
+            val = secrets_store.get_secret("ftp_password", env_var="SNOPER_FTP_PASSWORD")
+            if val:
+                pp["ftp"]["password"] = val
+        if isinstance(pp.get("smtp"), dict) and not pp["smtp"].get("password"):
+            val = secrets_store.get_secret("smtp_password", env_var="SNOPER_SMTP_PASSWORD")
+            if val:
+                pp["smtp"]["password"] = val

@@ -118,7 +118,7 @@ def run_tray(settings: Settings) -> int:
     except Exception:
         open_browser = None
 
-    tray_ref = {}
+    tray_ref: dict = {}
 
     def on_state(s: RecorderState):
         app = tray_ref.get("app")
@@ -167,7 +167,7 @@ def _selftest() -> int:
     mods = [
         "snoper.config", "snoper.recorder", "snoper.updater", "snoper.version",
         "snoper.scheduler", "snoper.postprocess",
-        "snoper.logging_setup", "snoper.single_instance",
+        "snoper.logging_setup", "snoper.single_instance", "snoper.secrets_store",
         "snoper.audio.vox", "snoper.audio.capture", "snoper.audio.writer",
         "snoper.audio.dsp", "snoper.audio.analyzer",
         "snoper.storage.index", "snoper.transcribe.engine",

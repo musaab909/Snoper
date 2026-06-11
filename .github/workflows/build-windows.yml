@@ -38,11 +38,10 @@ jobs:
       - name: Lint (ruff)
         run: ruff check .
       - name: Type check (mypy)
-        run: mypy snoper || true   # advisory until annotations are complete
+        run: mypy snoper          # blocking: core modules are type-clean
       - name: Tests + coverage
         # capture tests skip on headless Linux (no PortAudio); threshold accounts for it.
-        # Current floor is 50%; raise as test coverage grows (see CONTRIBUTING).
-        run: pytest --cov=snoper --cov-report=term-missing --cov-fail-under=50
+        run: pytest --cov=snoper --cov-report=term-missing --cov-fail-under=65
 
   build:
     needs: quality
