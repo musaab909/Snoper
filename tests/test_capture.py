@@ -12,7 +12,12 @@ import threading
 import numpy as np
 import pytest
 
-sd = pytest.importorskip("sounddevice")  # noqa: F841  (skip if not installed)
+# sounddevice raises ImportError when missing and OSError when PortAudio's native
+# lib is absent (e.g. headless Linux CI), so skip the whole module on either.
+try:
+    import sounddevice  # noqa: F401
+except Exception:
+    pytest.skip("sounddevice/PortAudio unavailable", allow_module_level=True)
 
 from snoper.audio.capture import AudioCapture
 from snoper.config import Settings
