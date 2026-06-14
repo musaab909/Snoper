@@ -41,7 +41,7 @@ jobs:
         run: mypy snoper          # blocking: core modules are type-clean
       - name: Tests + coverage
         # capture tests skip on headless Linux (no PortAudio); threshold accounts for it.
-        run: pytest --cov=snoper --cov-report=term-missing --cov-fail-under=65
+        run: pytest --cov=snoper --cov-report=term-missing --cov-fail-under=78
 
   build:
     needs: quality

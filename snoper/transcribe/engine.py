@@ -8,12 +8,15 @@ recorded in the storage index for search.
 from __future__ import annotations
 
 import json
+import logging
 import queue
 import threading
 from pathlib import Path
 
 from ..config import Settings
 from ..storage.index import RecordingIndex
+
+log = logging.getLogger("snoper.transcribe")
 
 try:
     from faster_whisper import WhisperModel  # type: ignore
@@ -58,10 +61,10 @@ class TranscriptionQueue:
                 continue
             try:
                 self._transcribe(path, started_at, duration)
-            except Exception as e:
-                print(f"[snoper] transcription failed for {path.name}: {e}")
+            except Exception:
+                log.exception("transcription failed for %s", path.name)
 
-    def _transcribe(self, path: Path, started_at, duration: float) -> None:  # pragma: no cover
+    def _transcribe(self, path: Path, started_at, duration: float) -> None:
         model = self._load_model()
         segments, info = model.transcribe(
             str(path), language=self.settings.whisper_language
